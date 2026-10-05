@@ -10,13 +10,16 @@ from src.liveness import analyze_liveness
 from src.parser import parse_program
 
 
-st.set_page_config(page_title="Compiler Register Allocation", page_icon="🔢", layout="wide")
+st.set_page_config(
+    page_title="Compiler Register Allocation — Graph Coloring Lab",
+    page_icon="🔢",
+    layout="wide",
+)
 
-st.title("Compiler Register Allocation using Graph Coloring")
+st.title("Compiler Register Allocation — Graph Coloring Lab")
 st.write(
-    "Enter simplified three-address code. The application parses it, performs "
-    "liveness analysis, builds an interference graph, and assigns registers "
-    "using greedy graph coloring."
+    "Experiment with simplified three-address code and observe how parsing, "
+    "liveness, interference, graph coloring, and register availability change."
 )
 
 examples = {
@@ -40,13 +43,22 @@ r = q / d
 s = r % e
 t = s + p
 result = t * f""",
+    "High Interference": """t1 = a + b
+t2 = c + d
+t3 = e + f
+t4 = t1 + t2
+t5 = t3 + t4
+result = t5 + a""",
+    "Isolated Variable": """a = b + c
+dead = a * d
+result = a + c""",
 }
 
 example_name = st.selectbox(
     "Try an example",
     list(examples.keys()),
     index=3,
-    help="Choose an example to see a different interference graph, or choose Custom.",
+    help="Choose an example, or choose Custom and edit the code yourself.",
 )
 
 default_program = examples[example_name]
@@ -63,148 +75,179 @@ program = st.text_area(
     help="Supported expressions can contain variables, constants, +, -, *, / and %.",
 )
 
-register_count = st.number_input(
-    "Number of available registers",
+register_count = st.slider(
+    "Available registers",
     min_value=1,
     max_value=12,
     value=3,
-    step=1,
+    help=(
+        "Change the number of registers to see allocation succeed or become "
+        "insufficient. The interference graph itself depends on the program, "
+        "not on this slider."
+    ),
 )
 
-if st.button("Analyze Program", type="primary"):
-    try:
-        instructions = parse_program(program)
-        live_in, live_out = analyze_liveness(instructions)
-        graph = build_interference_graph(instructions, live_in, live_out)
-        stats = graph_statistics(graph)
-        coloring = color_graph(graph)
-        used_colors = coloring_count(coloring)
+st.divider()
 
-        st.subheader("1. Parsed Instructions")
-        rows = [
-            {
-                "Instruction": x.number,
-                "Code": x.text,
-                "USE": ", ".join(sorted(x.use)) or "∅",
-                "DEF": ", ".join(sorted(x.define)) or "∅",
-            }
-            for x in instructions
-        ]
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+try:
+    instructions = parse_program(program)
+    live_in, live_out = analyze_liveness(instructions)
+    graph = build_interference_graph(instructions, live_in, live_out)
+    stats = graph_statistics(graph)
+    coloring = color_graph(graph)
+    used_colors = coloring_count(coloring)
+    allocation_possible = used_colors <= register_count
 
-        st.subheader("2. Liveness Analysis")
-        rows = [
-            {
-                "Instruction": x.number,
-                "Code": x.text,
-                "LIVE-IN": ", ".join(sorted(live_in[i])) or "∅",
-                "LIVE-OUT": ", ".join(sorted(live_out[i])) or "∅",
-            }
-            for i, x in enumerate(instructions)
-        ]
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    st.subheader("1. Parsed Instructions")
+    rows = [
+        {
+            "Instruction": x.number,
+            "Code": x.text,
+            "USE": ", ".join(sorted(x.use)) or "∅",
+            "DEF": ", ".join(sorted(x.define)) or "∅",
+        }
+        for x in instructions
+    ]
+    st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
-        st.subheader("3. Interference Graph")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Variables", stats["vertices"])
-        c2.metric("Edges", stats["edges"])
-        c3.metric("Maximum Degree", stats["max_degree"])
-        c4.metric("Connected Components", stats["connected_components"])
+    st.subheader("2. Liveness Analysis")
+    rows = [
+        {
+            "Instruction": x.number,
+            "Code": x.text,
+            "LIVE-IN": ", ".join(sorted(live_in[i])) or "∅",
+            "LIVE-OUT": ", ".join(sorted(live_out[i])) or "∅",
+        }
+        for i, x in enumerate(instructions)
+    ]
+    st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
-        if graph.number_of_nodes():
-            # Use a layout that spreads connected nodes apart for readability.
-            positions = nx.kamada_kawai_layout(graph)
+    st.subheader("3. Interference Graph")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Variables", stats["vertices"])
+    c2.metric("Edges", stats["edges"])
+    c3.metric("Maximum Degree", stats["max_degree"])
+    c4.metric("Connected Components", stats["connected_components"])
 
-            # Node colors show the greedy graph-coloring result.
-            cmap = plt.get_cmap("tab10")
-            node_colors = [
-                cmap(coloring[node] % 10)
-                for node in graph.nodes()
+    if graph.number_of_edges():
+        with st.expander("Inspect interference edges"):
+            edge_rows = [
+                {"Variable A": left, "Variable B": right}
+                for left, right in sorted(graph.edges())
             ]
-            labels = {
-                node: f"{node}\nR{coloring[node] + 1}"
-                for node in graph.nodes()
-            }
+            st.dataframe(pd.DataFrame(edge_rows), use_container_width=True)
 
-            fig, ax = plt.subplots(figsize=(12, 8))
-            nx.draw_networkx_edges(
-                graph,
-                positions,
-                ax=ax,
-                edge_color="gray",
-                width=1.4,
-            )
-            nx.draw_networkx_nodes(
-                graph,
-                positions,
-                ax=ax,
-                node_color=node_colors,
-                node_size=1500,
-                edgecolors="black",
-                linewidths=1.0,
-            )
-            nx.draw_networkx_labels(
-                graph,
-                positions,
-                labels=labels,
-                ax=ax,
-                font_size=9,
-                font_weight="bold",
-            )
+    if graph.number_of_nodes():
+        positions = nx.kamada_kawai_layout(graph)
 
-            legend_handles = [
-                Patch(
-                    facecolor=cmap(i % 10),
-                    edgecolor="black",
-                    label=f"R{i + 1} / Color {i}",
-                )
-                for i in range(used_colors)
-            ]
+        cmap = plt.get_cmap("tab10")
+        node_colors = [
+            cmap(coloring[node] % 10)
+            for node in graph.nodes()
+        ]
+        labels = {
+            node: f"{node}\nR{coloring[node] + 1}"
+            for node in graph.nodes()
+        }
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+        nx.draw_networkx_edges(
+            graph,
+            positions,
+            ax=ax,
+            edge_color="gray",
+            width=1.4,
+        )
+        nx.draw_networkx_nodes(
+            graph,
+            positions,
+            ax=ax,
+            node_color=node_colors,
+            node_size=1500,
+            edgecolors="black",
+            linewidths=1.0,
+        )
+        nx.draw_networkx_labels(
+            graph,
+            positions,
+            labels=labels,
+            ax=ax,
+            font_size=9,
+            font_weight="bold",
+        )
+
+        legend_handles = [
+            Patch(
+                facecolor=cmap(i % 10),
+                edgecolor="black",
+                label=f"R{i + 1} / Color {i}",
+            )
+            for i in range(used_colors)
+        ]
+        if legend_handles:
             ax.legend(
                 handles=legend_handles,
                 title="Register Allocation",
                 loc="upper right",
                 fontsize=9,
             )
-            ax.set_axis_off()
-            st.pyplot(fig, use_container_width=True)
-            plt.close(fig)
+        ax.set_axis_off()
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
 
-        st.subheader("4. Graph Coloring and Register Allocation")
-        rows = []
-        for variable in sorted(graph.nodes()):
-            color = coloring.get(variable)
-            rows.append(
-                {
-                    "Variable": variable,
-                    "Color": color,
-                    "Register": f"R{color + 1}",
-                    "Degree": graph.degree(variable),
-                }
-            )
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    st.subheader("4. Graph Coloring and Register Allocation")
+    rows = []
+    for variable in sorted(graph.nodes()):
+        color = coloring.get(variable)
+        rows.append(
+            {
+                "Variable": variable,
+                "Color": color,
+                "Register": f"R{color + 1}",
+                "Degree": graph.degree(variable),
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Colors Required", used_colors)
-        c2.metric("Registers Available", int(register_count))
-        c3.metric(
-            "Allocation",
-            "Possible" if used_colors <= int(register_count) else "Insufficient",
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Greedy Colors Used", used_colors)
+    c2.metric("Registers Available", register_count)
+    c3.metric("Register Difference", register_count - used_colors)
+
+    if allocation_possible:
+        st.success(
+            f"Allocation is possible: {register_count} register(s) are available "
+            f"for {used_colors} greedy color(s)."
+        )
+    else:
+        st.warning(
+            f"Allocation is insufficient: the greedy coloring uses {used_colors} "
+            f"color(s), but only {register_count} register(s) are available."
         )
 
-        if used_colors <= int(register_count):
-            st.success(f"Allocation is possible with {register_count} register(s).")
-        else:
-            st.warning(
-                f"This graph needs {used_colors} colors with the greedy strategy, "
-                f"but only {register_count} register(s) were provided."
-            )
+    st.info(
+        "DM interpretation: variables are vertices, interference is represented "
+        "by edges, and registers are colors. Adjacent vertices cannot receive "
+        "the same color."
+    )
 
-        st.info(
-            "DM interpretation: variables are vertices, interference is represented "
-            "by edges, and registers are colors. Adjacent vertices cannot receive "
-            "the same color."
-        )
+    st.subheader("5. Experiment — Observe the Cause and Effect")
+    st.markdown(
+        """
+Try changing one thing at a time:
 
-    except ValueError as exc:
-        st.error(str(exc))
+- **Registers:** move the slider from 2 → 3 → 4. The program and interference graph stay the same, but allocation may change from insufficient to possible.
+- **Remove an instruction:** liveness can change, which can remove variables or edges.
+- **Add an instruction or variable:** new USE/DEF information can create new interference relationships.
+- **Make a dead variable:** define a variable and never use it later. It may appear as an isolated vertex.
+- **Fix an error:** syntax errors are shown below the input so you can edit the program and immediately try again.
+        """
+    )
+
+except ValueError as exc:
+    st.warning("The current input cannot be analyzed yet.")
+    st.error(str(exc))
+    st.write(
+        "Edit the three-address code above, add or remove an instruction, "
+        "or choose one of the example programs and try again."
+    )
