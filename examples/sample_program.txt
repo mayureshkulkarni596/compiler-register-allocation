@@ -1,4 +1,6 @@
 a = b + c
-d = a + e
-f = d + c
-g = f + a
+d = a * e
+f = d / c
+g = f % a
+h = g - b
+result = h + d
