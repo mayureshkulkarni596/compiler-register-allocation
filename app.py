@@ -112,7 +112,8 @@ if st.button("Analyze Program", type="primary"):
         c4.metric("Connected Components", stats["connected_components"])
 
         if graph.number_of_nodes():
-            positions = nx.spring_layout(graph, seed=42)
+            # Use a layout that spreads connected nodes apart for readability.
+            positions = nx.kamada_kawai_layout(graph)
 
             # Node colors show the greedy graph-coloring result.
             cmap = plt.get_cmap("tab10")
@@ -125,20 +126,20 @@ if st.button("Analyze Program", type="primary"):
                 for node in graph.nodes()
             }
 
-            fig, ax = plt.subplots(figsize=(10, 6))
+            fig, ax = plt.subplots(figsize=(12, 8))
             nx.draw_networkx_edges(
                 graph,
                 positions,
                 ax=ax,
                 edge_color="gray",
-                width=1.6,
+                width=1.4,
             )
             nx.draw_networkx_nodes(
                 graph,
                 positions,
                 ax=ax,
                 node_color=node_colors,
-                node_size=1900,
+                node_size=1500,
                 edgecolors="black",
                 linewidths=1.0,
             )
@@ -147,7 +148,7 @@ if st.button("Analyze Program", type="primary"):
                 positions,
                 labels=labels,
                 ax=ax,
-                font_size=10,
+                font_size=9,
                 font_weight="bold",
             )
 
@@ -163,6 +164,7 @@ if st.button("Analyze Program", type="primary"):
                 handles=legend_handles,
                 title="Register Allocation",
                 loc="upper right",
+                fontsize=9,
             )
             ax.set_axis_off()
             st.pyplot(fig, use_container_width=True)
