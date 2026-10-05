@@ -45,6 +45,7 @@ result = t * f""",
 example_name = st.selectbox(
     "Try an example",
     list(examples.keys()),
+    index=3,
     help="Choose an example to see a different interference graph, or choose Custom.",
 )
 
