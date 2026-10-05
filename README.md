@@ -1,14 +1,24 @@
 # Compiler Register Allocation using Graph Coloring
 
-A Discrete Mathematics project demonstrating simplified compiler register allocation through graph coloring.
+A Discrete Mathematics project demonstrating how graph theory can be applied to simplified compiler register allocation.
 
-## 60% milestone
+## Project idea
 
-This version includes simplified three-address code input, parsing into USE/DEF sets, backward liveness analysis, interference graph construction, graph statistics, greedy graph coloring, register allocation, and an interactive Streamlit dashboard.
+Variables in a program are represented as vertices of an interference graph. If two variables are needed at the same time, they are connected by an edge and cannot use the same register. Registers are represented by colors, so register allocation becomes a graph-coloring problem.
 
-The project intentionally does not implement a full compiler, assembly generation, register spilling, or complex control-flow analysis yet.
+## Features
 
-## Discrete Mathematics used
+- Simplified three-address code input
+- Instruction parsing with USE and DEF sets
+- Backward liveness analysis
+- Interference graph construction
+- Basic graph statistics
+- Greedy graph coloring
+- Register allocation table
+- Interactive Streamlit dashboard
+- Example programs
+
+## Discrete Mathematics concepts
 
 - Sets: USE, DEF, LIVE-IN, LIVE-OUT
 - Relations: interference between variables
@@ -18,7 +28,11 @@ The project intentionally does not implement a full compiler, assembly generatio
 
 ## Tech stack
 
-Python, Streamlit, NetworkX, Pandas, Matplotlib
+- Python
+- Streamlit
+- NetworkX
+- Pandas
+- Matplotlib
 
 ## Run locally
 
